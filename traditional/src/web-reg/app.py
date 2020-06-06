@@ -24,6 +24,11 @@ db = SQLAlchemy(app)
 # initialize database migration management
 migrate = Migrate(app, db)
 
+# create initial DB table and columns
+
+with app.app_context():
+    db.create_all()
+
 
 @app.route('/')
 def view_registered_guests():
