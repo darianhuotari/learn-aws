@@ -6,8 +6,8 @@ After=syslog.target
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/home/ubuntu/web-reg
-ExecStart=/usr/bin/python3 /home/ubuntu/web-reg/app.py
+WorkingDirectory=/home/ubuntu/src/web-reg
+ExecStart=/usr/bin/python3 /home/ubuntu/src/web-reg/app.py
 StandardOutput=syslog
 StandardError=syslog
 
