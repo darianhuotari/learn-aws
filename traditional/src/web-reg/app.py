@@ -25,7 +25,6 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 # create initial DB table and columns
-
 with app.app_context():
     db.create_all()
 
