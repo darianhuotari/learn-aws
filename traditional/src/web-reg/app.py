@@ -54,6 +54,6 @@ def register_guest():
         'guest_confirmation.html', name=name, email=email)
 
 
-if __name__ = '__main__':
+if __name__ == '__main__':
     app.config['DEBUG'] = True
     app.run("0.0.0.0", "5000")
