@@ -3,12 +3,12 @@ import os
 from flask import Flask, render_template, request
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-
+from models import db, Guest
 
 database_uri = 'postgresql+psycopg2://{dbuser}:{dbpass}@{dbhost}/{dbname}'.format(
     dbuser='postgres',
     dbpass='psqlPassword-01',
-    dbhost='fotd-postgres.cgmc4zajyzqg.us-east-2.rds.amazonaws.com',
+    dbhost='webreg-db-postgres2.cgmc4zajyzqg.us-east-2.rds.amazonaws.com',
     dbname='postgres'
 )
 
@@ -19,14 +19,13 @@ app.config.update(
 )
 
 # initialize the database connection
-db = SQLAlchemy(app)
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
 
 # initialize database migration management
 migrate = Migrate(app, db)
-
-# create initial DB table and columns
-with app.app_context():
-    db.create_all()
 
 
 @app.route('/')
@@ -54,6 +53,7 @@ def register_guest():
     return render_template(
         'guest_confirmation.html', name=name, email=email)
 
-if __name__ == '__main__':
+
+if __name__ = '__main__':
     app.config['DEBUG'] = True
     app.run("0.0.0.0", "5000")
