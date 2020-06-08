@@ -5,6 +5,7 @@ Learning to automate AWS traditional, microservice, and serverless environments.
 Successully built load-balanced, auto-scaling site on EC2 which uses flask for the front-end and postgres to store data. Currently tweaking Terraform code to fully automate proccess.
 
 Next steps:
+
 1 - Pass DB DNS name from Terraform into app.py. Idea - create DNS alias for DB in main.tf, and point flask config to alternate DNS name?
 
 2 - Review security groups on DB resource
