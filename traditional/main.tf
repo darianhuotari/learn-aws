@@ -34,7 +34,7 @@ resource "tls_private_key" "key" {
 }
 
 resource "aws_key_pair" "key" {
-  key_name   = "learn-aws-traditional"
+  key_name   = "FOTD-Key2"
   public_key = "${tls_private_key.key.public_key_openssh}"
 }
 
@@ -107,10 +107,11 @@ resource "aws_instance" "web-reg" {
 
   provisioner "remote-exec" {
     inline = [
+      "/usr/bin/cloud-init status --wait",
       "sudo apt update",
       "sudo apt-get install libpq-dev -y",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq",
-      "sudo apt install -y python3-pip",
+      "sudo apt install -y python3-pip --allow-unauthenticated",
       "LC_ALL=C pip3 install flask flask-migrate flask-script flask-sqlalchemy appdirs packaging psycopg2 boto3",
       "sudo mv /home/ubuntu/web-reg.service /etc/systemd/system/web-reg.service",
       "sudo systemctl enable web-reg.service",
@@ -158,7 +159,7 @@ resource "aws_lb" "web-reg" {
 }
 
 resource "aws_lb_target_group" "web-reg" {
-  port     = 8080
+  port     = 5000
   protocol = "HTTP"
   vpc_id   = "${aws_default_vpc.default.id}"
 
@@ -187,7 +188,13 @@ resource "aws_db_instance" "postgres" {
   engine               = "postgres"
   engine_version       = "11.7"
   instance_class       = "db.t2.micro"
-  name                 = "web-app-db-postgres"
+  name                 = "postgres"
   username             = "postgres"
   password             = "psqlPassword-01"
+  skip_final_snapshot  = true
 }
+
+output "private_key_pem" {
+  value = "${tls_private_key.key.private_key_pem}"
+}
+
