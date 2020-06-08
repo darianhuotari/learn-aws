@@ -1,7 +1,9 @@
-variable "domain_name" {}
+# variable "domain_name" {}
 
+
+# Declare provider and region
 provider "aws" {
-  region = "us-east-1"
+  region = "us-east-2"
 }
 
 resource "aws_default_vpc" "default" {}
@@ -18,13 +20,13 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"]
   }
 }
 
-data "aws_route53_zone" "zone" {
-  name = "${var.domain_name}."
-}
+#data "aws_route53_zone" "zone" {
+#  name = "${var.domain_name}."
+#}
 
 resource "tls_private_key" "key" {
   algorithm = "RSA"
@@ -32,17 +34,17 @@ resource "tls_private_key" "key" {
 }
 
 resource "aws_key_pair" "key" {
-  key_name   = "LearnAmazonWebServicesTraditional"
+  key_name   = "learn-aws-traditional"
   public_key = "${tls_private_key.key.public_key_openssh}"
 }
 
-resource "aws_iam_role" "fortune" {
+resource "aws_iam_role" "web-reg-iam-role" {
   assume_role_policy = "${file("iam/assumeRolePolicy.json")}"
 }
 
-resource "aws_iam_role_policy" "fortune" {
-  role   = "${aws_iam_role.fortune.id}"
-  policy = "${file("iam/fortunePolicy.json")}"
+resource "aws_iam_role_policy" "web-reg-role-policy" {
+  role   = "${aws_iam_role.web-reg-iam-role.id}"
+  policy = "${file("iam/web-regPolicy.json")}"
 }
 
 resource "aws_security_group" "in_22tcp" {
@@ -65,10 +67,10 @@ resource "aws_security_group" "in_80tcp" {
   }
 }
 
-resource "aws_security_group" "in_8080tcp" {
+resource "aws_security_group" "in_5000tcp" {
   ingress {
-    from_port        = 8080
-    to_port          = 8080
+    from_port        = 5000
+    to_port          = 5000
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
@@ -85,7 +87,7 @@ resource "aws_security_group" "out_all" {
   }
 }
 
-resource "aws_instance" "fortune" {
+resource "aws_instance" "web-reg" {
   ami                    = "${data.aws_ami.ubuntu.id}"
   instance_type          = "t2.micro"
   key_name               = "${aws_key_pair.key.key_name}"
@@ -105,11 +107,12 @@ resource "aws_instance" "fortune" {
   provisioner "remote-exec" {
     inline = [
       "sudo apt update",
-      "sudo apt upgrade -y",
-      "sudo apt install -y python3-pip --allow-unauthenticated",
-      "LC_ALL=C pip3 install --user flask boto3",
-      "sudo mv /home/ubuntu/fortune.service /etc/systemd/system/fortune.service",
-      "sudo systemctl enable fortune.service",
+      "sudo apt-get install libpq-dev -y",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq",
+      "sudo apt install -y python3-pip",
+      "LC_ALL=C pip3 install flask flask-migrate flask-script flask-sqlalchemy appdirs packaging psycopg2 boto3",
+      "sudo mv /home/ubuntu/web-reg.service /etc/systemd/system/web-reg.service",
+      "sudo systemctl enable web-reg.service",
     ]
 
     connection {
@@ -120,39 +123,39 @@ resource "aws_instance" "fortune" {
   }
 }
 
-resource "aws_ami_from_instance" "fortune" {
-  name               = "FortuneServerAMI"
-  source_instance_id = "${aws_instance.fortune.id}"
+resource "aws_ami_from_instance" "web-reg" {
+  name               = "web-reg-ServerAMI"
+  source_instance_id = "${aws_instance.web-reg.id}"
 }
 
-resource "aws_iam_instance_profile" "fortune" {
-  role = "${aws_iam_role.fortune.name}"
+resource "aws_iam_instance_profile" "web-reg" {
+  role = "${aws_iam_role.web-reg.name}"
 }
 
-resource "aws_launch_configuration" "fortune" {
+resource "aws_launch_configuration" "web-reg" {
   name                 = "FortuneServerLaunchConfiguration"
-  image_id             = "${aws_ami_from_instance.fortune.id}"
+  image_id             = "${aws_ami_from_instance.web-reg.id}"
   instance_type        = "t2.micro"
   security_groups      = ["${aws_security_group.in_8080tcp.id}", "${aws_security_group.out_all.id}"]
-  iam_instance_profile = "${aws_iam_instance_profile.fortune.name}"
+  iam_instance_profile = "${aws_iam_instance_profile.web-reg.name}"
 }
 
-resource "aws_autoscaling_group" "fortune" {
+resource "aws_autoscaling_group" "web-reg" {
   min_size             = 2
   max_size             = 6
-  launch_configuration = "${aws_launch_configuration.fortune.name}"
-  target_group_arns    = ["${aws_lb_target_group.fortune.arn}"]
+  launch_configuration = "${aws_launch_configuration.web-reg.name}"
+  target_group_arns    = ["${aws_lb_target_group.web-reg.arn}"]
   availability_zones   = ["${data.aws_availability_zones.all.names}"]
 }
 
-resource "aws_lb" "fortune" {
+resource "aws_lb" "web-reg" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["${aws_security_group.in_80tcp.id}", "${aws_security_group.out_all.id}"]
   subnets            = ["${data.aws_subnet_ids.default.ids}"]
 }
 
-resource "aws_lb_target_group" "fortune" {
+resource "aws_lb_target_group" "web-reg" {
   port     = 8080
   protocol = "HTTP"
   vpc_id   = "${aws_default_vpc.default.id}"
@@ -165,177 +168,24 @@ resource "aws_lb_target_group" "fortune" {
   }
 }
 
-resource "aws_lb_listener" "fortune" {
-  load_balancer_arn = "${aws_lb.fortune.arn}"
+resource "aws_lb_listener" "web-reg" {
+  load_balancer_arn = "${aws_lb.web-reg.arn}"
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
-    target_group_arn = "${aws_lb_target_group.fortune.arn}"
+    target_group_arn = "${aws_lb_target_group.web-reg.arn}"
     type             = "forward"
   }
 }
 
-resource "aws_cloudfront_distribution" "www" {
-  aliases         = ["www.traditional.${var.domain_name}"]
-  is_ipv6_enabled = true
-
-  default_cache_behavior {
-    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods  = ["GET", "HEAD"]
-    compress        = true
-
-    forwarded_values {
-      query_string = true
-      headers      = ["*"]
-
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl                = 0
-    target_origin_id       = "${aws_lb.fortune.id}"
-    viewer_protocol_policy = "redirect-to-https"
-  }
-
-  enabled     = true
-  price_class = "PriceClass_100"
-
-  origin {
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
-    }
-
-    domain_name = "${aws_lb.fortune.dns_name}"
-    origin_id   = "${aws_lb.fortune.id}"
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn = "${aws_acm_certificate_validation.cert.certificate_arn}"
-    ssl_support_method  = "sni-only"
-  }
-}
-
-resource "aws_acm_certificate" "cert" {
-  domain_name       = "*.traditional.${var.domain_name}"
-  validation_method = "DNS"
-}
-
-resource "aws_route53_record" "cert_validation" {
-  name    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
-  type    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_type}"
-  zone_id = "${data.aws_route53_zone.zone.id}"
-  records = ["${aws_acm_certificate.cert.domain_validation_options.0.resource_record_value}"]
-  ttl     = 60
-}
-
-resource "aws_acm_certificate_validation" "cert" {
-  certificate_arn         = "${aws_acm_certificate.cert.arn}"
-  validation_record_fqdns = ["${aws_route53_record.cert_validation.fqdn}"]
-}
-
-resource "aws_route53_record" "www" {
-  zone_id = "${data.aws_route53_zone.zone.zone_id}"
-  name    = "www.traditional"
-  type    = "A"
-
-  alias {
-    name                   = "${aws_cloudfront_distribution.www.domain_name}"
-    zone_id                = "${aws_cloudfront_distribution.www.hosted_zone_id}"
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_dynamodb_table" "fortunes" {
-  name           = "FortunesTraditional"
-  read_capacity  = 5
-  write_capacity = 5
-  hash_key       = "id"
-
-  attribute {
-    name = "id"
-    type = "N"
-  }
-}
-
-resource "aws_dynamodb_table_item" "fortune0" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"0"},"fortune":{"S":"This is the first ever fortune!"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune1" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"1"},"fortune":{"S":"Hello darkness, my old friend"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune2" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"2"},"fortune":{"S":"I've come to talk with you again"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune3" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"3"},"fortune":{"S":"Because a vision softly creeping"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune4" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"4"},"fortune":{"S":"Left its seeds while I was sleeping"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune5" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"5"},"fortune":{"S":"And the vision that was planted in my brain"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune6" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"6"},"fortune":{"S":"Still remains"}}
-EOF
-}
-
-resource "aws_dynamodb_table_item" "fortune7" {
-  table_name = "${aws_dynamodb_table.fortunes.name}"
-  hash_key   = "${aws_dynamodb_table.fortunes.hash_key}"
-
-  item = <<EOF
-{"id":{"N":"7"},"fortune":{"S":"Within the sound of silence"}}
-EOF
+resource "aws_db_instance" "postgres" {
+  allocated_storage    = 20
+  storage_type         = "gp2"
+  engine               = "postgres"
+  engine_version       = "11.7"
+  instance_class       = "db.t2.micro"
+  name                 = "web-app-db-postgres"
+  username             = "postgres"
+  password             = "psqlPassword-01"
 }
