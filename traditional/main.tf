@@ -98,6 +98,7 @@ resource "aws_instance" "web-reg" {
     destination = "/home/ubuntu"
 
     connection {
+      host = self.public_ip
       type        = "ssh"
       user        = "ubuntu"
       private_key = "${tls_private_key.key.private_key_pem}"
@@ -116,6 +117,7 @@ resource "aws_instance" "web-reg" {
     ]
 
     connection {
+      host = self.public_ip
       type        = "ssh"
       user        = "ubuntu"
       private_key = "${tls_private_key.key.private_key_pem}"
@@ -129,14 +131,14 @@ resource "aws_ami_from_instance" "web-reg" {
 }
 
 resource "aws_iam_instance_profile" "web-reg" {
-  role = "${aws_iam_role.web-reg.name}"
+  role = "${aws_iam_role.web-reg-iam-role.name}"
 }
 
 resource "aws_launch_configuration" "web-reg" {
   name                 = "FortuneServerLaunchConfiguration"
   image_id             = "${aws_ami_from_instance.web-reg.id}"
   instance_type        = "t2.micro"
-  security_groups      = ["${aws_security_group.in_8080tcp.id}", "${aws_security_group.out_all.id}"]
+  security_groups      = ["${aws_security_group.in_5000tcp.id}", "${aws_security_group.out_all.id}"]
   iam_instance_profile = "${aws_iam_instance_profile.web-reg.name}"
 }
 
@@ -145,14 +147,14 @@ resource "aws_autoscaling_group" "web-reg" {
   max_size             = 6
   launch_configuration = "${aws_launch_configuration.web-reg.name}"
   target_group_arns    = ["${aws_lb_target_group.web-reg.arn}"]
-  availability_zones   = ["${data.aws_availability_zones.all.names}"]
+  availability_zones   = "${data.aws_availability_zones.all.names}"
 }
 
 resource "aws_lb" "web-reg" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["${aws_security_group.in_80tcp.id}", "${aws_security_group.out_all.id}"]
-  subnets            = ["${data.aws_subnet_ids.default.ids}"]
+  subnets            = "${data.aws_subnet_ids.default.ids}"
 }
 
 resource "aws_lb_target_group" "web-reg" {
