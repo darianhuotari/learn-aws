@@ -6,17 +6,20 @@ provider "aws" {
   region = "us-east-2"
 }
 
+# Use default VPC
 resource "aws_default_vpc" "default" {}
 
 data "aws_subnet_ids" "default" {
   vpc_id = "${aws_default_vpc.default.id}"
 }
 
+# Use all availability zones for region
 data "aws_availability_zones" "all" {}
 
+# Define base AMI
 data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"]
+  owners      = ["099720109477"] # Canonical Owner ID
 
   filter {
     name   = "name"
@@ -28,25 +31,30 @@ data "aws_ami" "ubuntu" {
 #  name = "${var.domain_name}."
 #}
 
+# Create private key for terraform use
 resource "tls_private_key" "key" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
+# Create public key for terraform use
 resource "aws_key_pair" "key" {
   key_name   = "FOTD-Key2"
   public_key = "${tls_private_key.key.public_key_openssh}"
 }
 
+# ?
 resource "aws_iam_role" "web-reg-iam-role" {
   assume_role_policy = "${file("iam/assumeRolePolicy.json")}"
 }
 
+# ?
 resource "aws_iam_role_policy" "web-reg-role-policy" {
   role   = "${aws_iam_role.web-reg-iam-role.id}"
   policy = "${file("iam/web-regPolicy.json")}"
 }
 
+# Create security group and allow SSH from anywhere
 resource "aws_security_group" "in_22tcp" {
   ingress {
     from_port        = 22
@@ -57,6 +65,7 @@ resource "aws_security_group" "in_22tcp" {
   }
 }
 
+# Create security group and allow HTTP from anywhere
 resource "aws_security_group" "in_80tcp" {
   ingress {
     from_port        = 80
@@ -67,6 +76,7 @@ resource "aws_security_group" "in_80tcp" {
   }
 }
 
+# Create security group and allow TCP 5000 from anywhere
 resource "aws_security_group" "in_5000tcp" {
   ingress {
     from_port        = 5000
@@ -77,6 +87,7 @@ resource "aws_security_group" "in_5000tcp" {
   }
 }
 
+# Create security group and allow all outbound traffic
 resource "aws_security_group" "out_all" {
   egress {
     from_port        = 0
@@ -87,12 +98,14 @@ resource "aws_security_group" "out_all" {
   }
 }
 
+# Build base EC2 instance and perform base provisioning tasks
 resource "aws_instance" "web-reg" {
   ami                    = "${data.aws_ami.ubuntu.id}"
   instance_type          = "t2.micro"
   key_name               = "${aws_key_pair.key.key_name}"
   vpc_security_group_ids = ["${aws_security_group.in_22tcp.id}", "${aws_security_group.out_all.id}"]
 
+# Move files from src/ to /home/ubuntu folder on base EC2 instance
   provisioner "file" {
     source      = "src/"
     destination = "/home/ubuntu"
@@ -126,23 +139,27 @@ resource "aws_instance" "web-reg" {
   }
 }
 
+# Create custom AMI from base EC2 instance
 resource "aws_ami_from_instance" "web-reg" {
   name               = "web-reg-ServerAMI"
   source_instance_id = "${aws_instance.web-reg.id}"
 }
 
+# Create instance profile?
 resource "aws_iam_instance_profile" "web-reg" {
   role = "${aws_iam_role.web-reg-iam-role.name}"
 }
 
+# Create launch config for custom AMI
 resource "aws_launch_configuration" "web-reg" {
-  name                 = "FortuneServerLaunchConfiguration"
+  name                 = "Web-reg-LC"
   image_id             = "${aws_ami_from_instance.web-reg.id}"
   instance_type        = "t2.micro"
   security_groups      = ["${aws_security_group.in_5000tcp.id}", "${aws_security_group.out_all.id}"]
   iam_instance_profile = "${aws_iam_instance_profile.web-reg.name}"
 }
 
+# Create autoscaling group using custom launch config
 resource "aws_autoscaling_group" "web-reg" {
   min_size             = 2
   max_size             = 6
@@ -151,6 +168,7 @@ resource "aws_autoscaling_group" "web-reg" {
   availability_zones   = "${data.aws_availability_zones.all.names}"
 }
 
+# Create application load balancer 
 resource "aws_lb" "web-reg" {
   internal           = false
   load_balancer_type = "application"
@@ -158,6 +176,7 @@ resource "aws_lb" "web-reg" {
   subnets            = "${data.aws_subnet_ids.default.ids}"
 }
 
+# Create target group for application load balancer and define health checks
 resource "aws_lb_target_group" "web-reg" {
   port     = 5000
   protocol = "HTTP"
@@ -171,6 +190,7 @@ resource "aws_lb_target_group" "web-reg" {
   }
 }
 
+# Create listener for load balancer, translates HTTP 80 to HTTP 5000
 resource "aws_lb_listener" "web-reg" {
   load_balancer_arn = "${aws_lb.web-reg.arn}"
   port              = "80"
@@ -182,6 +202,7 @@ resource "aws_lb_listener" "web-reg" {
   }
 }
 
+# Create postgres RDS instance
 resource "aws_db_instance" "postgres" {
   allocated_storage    = 20
   storage_type         = "gp2"
@@ -194,6 +215,7 @@ resource "aws_db_instance" "postgres" {
   skip_final_snapshot  = true
 }
 
+# Output the terraform private key to allow manual SSH access to EC2 instances
 output "private_key_pem" {
   value = "${tls_private_key.key.private_key_pem}"
 }
