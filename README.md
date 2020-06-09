@@ -6,18 +6,18 @@ Successully built load-balanced, auto-scaling site on EC2 which uses flask for t
 
 Next steps:
 
-1 - Pass DB DNS name from Terraform into app.py. Idea - create DNS alias for DB in main.tf, and point flask config to alternate DNS name?
+1 - Terraformize DNS entry creation based on postgres instance DNS name.
 
-2 - Review security groups on DB resource
+2 - Terraformize security group on postgres DB instance
 
-3 - Figure out a way to pass variables from Terraform, to avoid hard-coded passwords / connection strings.
+3 - Use IAM roles to allow DB access instead of username / password?
 
 
 
 To do: 
 Serve from static S3 bucket. 
-Use Route53 for DNS.
 Enable SSL.
+Terraformize both the above once tested and working.
 
 # Microservice
 Coming later.
