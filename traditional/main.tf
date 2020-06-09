@@ -87,6 +87,17 @@ resource "aws_security_group" "in_5000tcp" {
   }
 }
 
+# Create security group and allow PostgreSQL 5432 from anywhere
+resource "aws_security_group" "in_5432tcp" {
+  ingress {
+    from_port        = 5432
+    to_port          = 5432
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+}
+
 # Create security group and allow all outbound traffic
 resource "aws_security_group" "out_all" {
   egress {
@@ -213,6 +224,7 @@ resource "aws_db_instance" "postgres" {
   username             = "postgres"
   password             = "psqlPassword-01"
   skip_final_snapshot  = true
+  vpc_security_group_ids = ["${aws_security_group.in_5432tcp.id}", "${aws_security_group.out_all.id}"]
 }
 
 # Create CNAME pointing to RDS instance DNS address
