@@ -15,8 +15,11 @@ Next steps:
 
 
 To do: 
+
 Serve from static S3 bucket. 
+
 Enable SSL.
+
 Terraformize both the above once tested and working.
 
 # Microservice
