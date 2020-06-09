@@ -8,7 +8,7 @@ from models import db, Guest
 database_uri = 'postgresql+psycopg2://{dbuser}:{dbpass}@{dbhost}/{dbname}'.format(
     dbuser='postgres',
     dbpass='psqlPassword-01',
-    dbhost='webreg-db-postgres2.cgmc4zajyzqg.us-east-2.rds.amazonaws.com',
+    dbhost='demodb1.hoot-cloud.com',
     dbname='postgres'
 )
 
