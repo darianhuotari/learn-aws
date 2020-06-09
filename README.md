@@ -26,4 +26,4 @@ Coming later.
 Coming later.
 
 # Credits
-Using https://github.com/ricardbejarano/learn-aws/ and https://github.com/Azure-Samples/flask-postgresql-app for ideas / examples.
+Using https://github.com/ricardbejarano/learn-aws/ and https://github.com/Azure-Samples/flask-postgresql-app for inspiration and python / flask code samples.
