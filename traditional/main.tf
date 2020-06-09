@@ -215,6 +215,15 @@ resource "aws_db_instance" "postgres" {
   skip_final_snapshot  = true
 }
 
+# Create CNAME pointing to RDS instance DNS address
+resource "aws_route53_record" "demodb1" {
+  zone_id = "${aws_route53_zone.primary.zone_id}"
+  name = "demodb1.example.com"
+  type = "CNAME"
+  ttl = "300"
+  records = ["${aws_db_instance.postgres.address}"]
+}
+
 # Output the terraform private key to allow manual SSH access to EC2 instances
 output "private_key_pem" {
   value = "${tls_private_key.key.private_key_pem}"
