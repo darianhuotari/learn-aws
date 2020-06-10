@@ -1,4 +1,4 @@
-# variable "domain_name" {}
+variable "domain_name" {}
 
 
 # Declare provider and region
@@ -27,9 +27,10 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-#data "aws_route53_zone" "zone" {
-#  name = "${var.domain_name}."
-#}
+# Declare DNS zone to use
+data "aws_route53_zone" "zone" {
+  name = "${var.domain_name}."
+}
 
 # Create private key for terraform use
 resource "tls_private_key" "key" {
@@ -213,6 +214,57 @@ resource "aws_lb_listener" "web-reg" {
   }
 }
 
+# Create Cloudfront 
+resource "aws_cloudfront_distribution" "www" {
+  aliases         = ["www.traditional.${var.domain_name}"]
+  is_ipv6_enabled = true
+
+  default_cache_behavior {
+    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods  = ["GET", "HEAD"]
+    compress        = true
+
+    forwarded_values {
+      query_string = true
+      headers      = ["*"]
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl                = 0
+    target_origin_id       = "${aws_lb.web-reg.id}"
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
+  enabled     = true
+  price_class = "PriceClass_100"
+
+  origin {
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
+    }
+
+    domain_name = "${aws_lb.web-reg.dns_name}"
+    origin_id   = "${aws_lb.web-reg.id}"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn = "${aws_acm_certificate_validation.cert.certificate_arn}"
+    ssl_support_method  = "sni-only"
+  }
+}
+
 # Create postgres RDS instance
 resource "aws_db_instance" "postgres" {
   allocated_storage    = 20
@@ -229,8 +281,9 @@ resource "aws_db_instance" "postgres" {
 
 # Create CNAME pointing to RDS instance DNS address
 resource "aws_route53_record" "demodb1" {
-  zone_id = "${aws_route53_zone.primary.zone_id}"
-  name = "demodb1.example.com"
+  allow_overwrite = true
+  zone_id = "${data.aws_route53_zone.zone.zone_id}"
+  name = "demodb1.hoot-cloud.com"
   type = "CNAME"
   ttl = "300"
   records = ["${aws_db_instance.postgres.address}"]
