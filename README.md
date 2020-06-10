@@ -1,16 +1,14 @@
 # learn-aws
-Learning to automate AWS traditional, microservice, and serverless environments. Building a self-registration app using Flask and PostgreSQL. Inspired by [this Reddit post.](https://www.reddit.com/r/sysadmin/comments/8inzn5/so_you_want_to_learn_aws_aka_how_do_i_learn_to_be/)
+Learning to automate AWS traditional, microservice, and serverless environments. Built a self-registration app using Flask and PostgreSQL. Deployed onto AWS using Terraform. Inspired by [this Reddit post.](https://www.reddit.com/r/sysadmin/comments/8inzn5/so_you_want_to_learn_aws_aka_how_do_i_learn_to_be/)
 
 # Traditional
-Successully built load-balanced, auto-scaling site on EC2 which uses `Flask` for the front-end and `PostgreSQL` to store data. Currently tweaking Terraform code to fully automate proccess.
+Successully built load-balanced, auto-scaling site on EC2 which uses `Flask` for the front-end and `PostgreSQL` to store data. Using Terraform to fully automate proccess.
 
 Next steps:
 
-1 - Terraformize DNS entry creation based on postgres instance DNS name.
+1 - Use terraform to create CNAME entry for load balancer.
 
-2 - Terraformize security group on postgres DB instance
-
-3 - Use IAM roles to allow DB access instead of username / password?
+2 - Use IAM roles to allow DB access instead of username / password?
 
 
 
