@@ -6,7 +6,7 @@ Successully built load-balanced, auto-scaling self-registration portal which use
 
 Next steps:
 
-1 - Cleanup main.tf names / variables
+1 - Cleanup main.tf names / variables / variable syntax using `"${ ... }"`
 
 2 - Tighten up IAM roles and security groups
 
