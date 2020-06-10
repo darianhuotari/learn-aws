@@ -214,7 +214,7 @@ resource "aws_lb_listener" "web-reg" {
   }
 }
 
-# Create Cloudfront 
+# Create Cloudfront instance and use domain name as alias (Needed for Route53)
 resource "aws_cloudfront_distribution" "www" {
   aliases         = ["www.traditional.${var.domain_name}"]
   is_ipv6_enabled = true
@@ -239,8 +239,11 @@ resource "aws_cloudfront_distribution" "www" {
   }
 
   enabled     = true
+
+# Use cheapest price class
   price_class = "PriceClass_100"
 
+# Set origin / source for Cloudfare to cache data 
   origin {
     custom_origin_config {
       http_port              = 80
@@ -259,9 +262,44 @@ resource "aws_cloudfront_distribution" "www" {
     }
   }
 
+# Use Terraform-created certificate
   viewer_certificate {
     acm_certificate_arn = "${aws_acm_certificate_validation.cert.certificate_arn}"
     ssl_support_method  = "sni-only"
+  }
+}
+
+# Create wildcard ACM certificate
+resource "aws_acm_certificate" "cert" {
+  domain_name       = "*.traditional.${var.domain_name}"
+  validation_method = "DNS"
+}
+
+# Automate cert validation via DNS
+resource "aws_route53_record" "cert_validation" {
+  allow_overwrite = true
+  name    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
+  type    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_type}"
+  zone_id = "${data.aws_route53_zone.zone.id}"
+  records = ["${aws_acm_certificate.cert.domain_validation_options.0.resource_record_value}"]
+  ttl     = 60
+}
+
+resource "aws_acm_certificate_validation" "cert" {
+  certificate_arn         = "${aws_acm_certificate.cert.arn}"
+  validation_record_fqdns = ["${aws_route53_record.cert_validation.fqdn}"]
+}
+
+# Create alias for www.traditional.domainname to point to Cloudfare DNS address
+resource "aws_route53_record" "www" {
+  zone_id = "${data.aws_route53_zone.zone.zone_id}"
+  name    = "www.traditional"
+  type    = "A"
+
+  alias {
+    name                   = "${aws_cloudfront_distribution.www.domain_name}"
+    zone_id                = "${aws_cloudfront_distribution.www.hosted_zone_id}"
+    evaluate_target_health = false
   }
 }
 
