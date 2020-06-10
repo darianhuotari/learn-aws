@@ -1,3 +1,4 @@
+# Prompt for domain name
 variable "domain_name" {}
 
 
@@ -6,9 +7,16 @@ provider "aws" {
   region = "us-east-2"
 }
 
-# Use default VPC
+# Declare US-East-1; required for CloudFront certificate
+provider "aws" {
+  region = "us-east-1"
+  alias = "use1"
+}
+
+# Use default account VPC
 resource "aws_default_vpc" "default" {}
 
+# Use default subnets
 data "aws_subnet_ids" "default" {
   vpc_id = "${aws_default_vpc.default.id}"
 }
@@ -32,7 +40,7 @@ data "aws_route53_zone" "zone" {
   name = "${var.domain_name}."
 }
 
-# Create private key for terraform use
+# Create private key for terraform use. Will only exist in terraform state.
 resource "tls_private_key" "key" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -44,12 +52,12 @@ resource "aws_key_pair" "key" {
   public_key = "${tls_private_key.key.public_key_openssh}"
 }
 
-# ?
+# Allows EC2 instances to assume IAM roles
 resource "aws_iam_role" "web-reg-iam-role" {
   assume_role_policy = "${file("iam/assumeRolePolicy.json")}"
 }
 
-# ?
+# Creates Role Policy
 resource "aws_iam_role_policy" "web-reg-role-policy" {
   role   = "${aws_iam_role.web-reg-iam-role.id}"
   policy = "${file("iam/web-regPolicy.json")}"
@@ -130,6 +138,7 @@ resource "aws_instance" "web-reg" {
     }
   }
 
+# Perform shell commands to prepare and enable Flask application
   provisioner "remote-exec" {
     inline = [
       "/usr/bin/cloud-init status --wait",
@@ -157,7 +166,7 @@ resource "aws_ami_from_instance" "web-reg" {
   source_instance_id = "${aws_instance.web-reg.id}"
 }
 
-# Create instance profile?
+# Create instance profile and assign IAM role
 resource "aws_iam_instance_profile" "web-reg" {
   role = "${aws_iam_role.web-reg-iam-role.name}"
 }
@@ -180,7 +189,7 @@ resource "aws_autoscaling_group" "web-reg" {
   availability_zones   = "${data.aws_availability_zones.all.names}"
 }
 
-# Create application load balancer 
+# Create application load balancer and assign security groups
 resource "aws_lb" "web-reg" {
   internal           = false
   load_balancer_type = "application"
@@ -202,7 +211,7 @@ resource "aws_lb_target_group" "web-reg" {
   }
 }
 
-# Create listener for load balancer, translates HTTP 80 to HTTP 5000
+# Create listener for load balancer, translates inbound HTTP 80 to HTTP 5000
 resource "aws_lb_listener" "web-reg" {
   load_balancer_arn = "${aws_lb.web-reg.arn}"
   port              = "80"
@@ -243,7 +252,7 @@ resource "aws_cloudfront_distribution" "www" {
 # Use cheapest price class
   price_class = "PriceClass_100"
 
-# Set origin / source for Cloudfare to cache data 
+# Set origin / source for CloudFront to cache data 
   origin {
     custom_origin_config {
       http_port              = 80
@@ -269,13 +278,14 @@ resource "aws_cloudfront_distribution" "www" {
   }
 }
 
-# Create wildcard ACM certificate
+# Create wildcard ACM certificate in East US 1; required by CloudFront
 resource "aws_acm_certificate" "cert" {
+  provider = aws.use1
   domain_name       = "*.traditional.${var.domain_name}"
   validation_method = "DNS"
 }
 
-# Automate cert validation via DNS
+# Automate ACM cert validation via DNS
 resource "aws_route53_record" "cert_validation" {
   allow_overwrite = true
   name    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
@@ -285,12 +295,14 @@ resource "aws_route53_record" "cert_validation" {
   ttl     = 60
 }
 
+# Validate wildcard ACM certificate in East US 1; required by CloudFront
 resource "aws_acm_certificate_validation" "cert" {
+  provider = aws.use1
   certificate_arn         = "${aws_acm_certificate.cert.arn}"
   validation_record_fqdns = ["${aws_route53_record.cert_validation.fqdn}"]
 }
 
-# Create alias for www.traditional.domainname to point to Cloudfare DNS address
+# Create alias for www.traditional.domainname to point to Cloudfront DNS address
 resource "aws_route53_record" "www" {
   zone_id = "${data.aws_route53_zone.zone.zone_id}"
   name    = "www.traditional"
@@ -303,7 +315,7 @@ resource "aws_route53_record" "www" {
   }
 }
 
-# Create postgres RDS instance
+# Create postgres RDS instance and assign security groups
 resource "aws_db_instance" "postgres" {
   allocated_storage    = 20
   storage_type         = "gp2"
@@ -328,7 +340,7 @@ resource "aws_route53_record" "demodb1" {
 }
 
 # Output the terraform private key to allow manual SSH access to EC2 instances
+# This is useful when you need to troubleshoot flask problems directly on EC2
 output "private_key_pem" {
   value = "${tls_private_key.key.private_key_pem}"
 }
-
