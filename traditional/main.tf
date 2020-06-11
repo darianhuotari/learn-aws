@@ -10,7 +10,7 @@ provider "aws" {
 # Declare US-East-1; required for CloudFront certificate
 provider "aws" {
   region = "us-east-1"
-  alias = "use1"
+  alias  = "use1"
 }
 
 # Use default account VPC
@@ -118,6 +118,30 @@ resource "aws_security_group" "out_all" {
   }
 }
 
+# Create postgres RDS instance and assign security groups
+resource "aws_db_instance" "postgres" {
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  engine                 = "postgres"
+  engine_version         = "11.7"
+  instance_class         = "db.t2.micro"
+  name                   = "postgres"
+  username               = "postgres"
+  password               = "psqlPassword-01"
+  skip_final_snapshot    = true
+  vpc_security_group_ids = ["${aws_security_group.in_5432tcp.id}", "${aws_security_group.out_all.id}"]
+}
+
+# Create CNAME pointing to RDS instance DNS address
+resource "aws_route53_record" "demodb1" {
+  allow_overwrite = true
+  zone_id         = "${data.aws_route53_zone.zone.zone_id}"
+  name            = "demodb1.hoot-cloud.com"
+  type            = "CNAME"
+  ttl             = "300"
+  records         = ["${aws_db_instance.postgres.address}"]
+}
+
 # Build base EC2 instance and perform base provisioning tasks
 resource "aws_instance" "web-reg" {
   ami                    = "${data.aws_ami.ubuntu.id}"
@@ -125,20 +149,20 @@ resource "aws_instance" "web-reg" {
   key_name               = "${aws_key_pair.key.key_name}"
   vpc_security_group_ids = ["${aws_security_group.in_22tcp.id}", "${aws_security_group.out_all.id}"]
 
-# Move files from src/ to /home/ubuntu folder on base EC2 instance
+  # Move files from src/ to /home/ubuntu folder on base EC2 instance
   provisioner "file" {
     source      = "src/"
     destination = "/home/ubuntu"
 
     connection {
-      host = self.public_ip
+      host        = self.public_ip
       type        = "ssh"
       user        = "ubuntu"
       private_key = "${tls_private_key.key.private_key_pem}"
     }
   }
 
-# Perform shell commands to prepare and enable Flask application
+  # Perform shell commands to prepare and enable Flask application
   provisioner "remote-exec" {
     inline = [
       "/usr/bin/cloud-init status --wait",
@@ -152,7 +176,7 @@ resource "aws_instance" "web-reg" {
     ]
 
     connection {
-      host = self.public_ip
+      host        = self.public_ip
       type        = "ssh"
       user        = "ubuntu"
       private_key = "${tls_private_key.key.private_key_pem}"
@@ -247,12 +271,12 @@ resource "aws_cloudfront_distribution" "www" {
     viewer_protocol_policy = "redirect-to-https"
   }
 
-  enabled     = true
+  enabled = true
 
-# Use cheapest price class
+  # Use cheapest price class
   price_class = "PriceClass_100"
 
-# Set origin / source for CloudFront to cache data 
+  # Set origin / source for CloudFront to cache data 
   origin {
     custom_origin_config {
       http_port              = 80
@@ -271,7 +295,7 @@ resource "aws_cloudfront_distribution" "www" {
     }
   }
 
-# Use Terraform-created certificate
+  # Use Terraform-created certificate
   viewer_certificate {
     acm_certificate_arn = "${aws_acm_certificate_validation.cert.certificate_arn}"
     ssl_support_method  = "sni-only"
@@ -280,7 +304,7 @@ resource "aws_cloudfront_distribution" "www" {
 
 # Create wildcard ACM certificate in East US 1; required by CloudFront
 resource "aws_acm_certificate" "cert" {
-  provider = aws.use1
+  provider          = aws.use1
   domain_name       = "*.traditional.${var.domain_name}"
   validation_method = "DNS"
 }
@@ -288,16 +312,16 @@ resource "aws_acm_certificate" "cert" {
 # Automate ACM cert validation via DNS
 resource "aws_route53_record" "cert_validation" {
   allow_overwrite = true
-  name    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
-  type    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_type}"
-  zone_id = "${data.aws_route53_zone.zone.id}"
-  records = ["${aws_acm_certificate.cert.domain_validation_options.0.resource_record_value}"]
-  ttl     = 60
+  name            = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
+  type            = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_type}"
+  zone_id         = "${data.aws_route53_zone.zone.id}"
+  records         = ["${aws_acm_certificate.cert.domain_validation_options.0.resource_record_value}"]
+  ttl             = 60
 }
 
 # Validate wildcard ACM certificate in East US 1; required by CloudFront
 resource "aws_acm_certificate_validation" "cert" {
-  provider = aws.use1
+  provider                = aws.use1
   certificate_arn         = "${aws_acm_certificate.cert.arn}"
   validation_record_fqdns = ["${aws_route53_record.cert_validation.fqdn}"]
 }
@@ -317,26 +341,26 @@ resource "aws_route53_record" "www" {
 
 # Create postgres RDS instance and assign security groups
 resource "aws_db_instance" "postgres" {
-  allocated_storage    = 20
-  storage_type         = "gp2"
-  engine               = "postgres"
-  engine_version       = "11.7"
-  instance_class       = "db.t2.micro"
-  name                 = "postgres"
-  username             = "postgres"
-  password             = "psqlPassword-01"
-  skip_final_snapshot  = true
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  engine                 = "postgres"
+  engine_version         = "11.7"
+  instance_class         = "db.t2.micro"
+  name                   = "postgres"
+  username               = "postgres"
+  password               = "psqlPassword-01"
+  skip_final_snapshot    = true
   vpc_security_group_ids = ["${aws_security_group.in_5432tcp.id}", "${aws_security_group.out_all.id}"]
 }
 
 # Create CNAME pointing to RDS instance DNS address
 resource "aws_route53_record" "demodb1" {
   allow_overwrite = true
-  zone_id = "${data.aws_route53_zone.zone.zone_id}"
-  name = "demodb1.hoot-cloud.com"
-  type = "CNAME"
-  ttl = "300"
-  records = ["${aws_db_instance.postgres.address}"]
+  zone_id         = "${data.aws_route53_zone.zone.zone_id}"
+  name            = "demodb1.hoot-cloud.com"
+  type            = "CNAME"
+  ttl             = "300"
+  records         = ["${aws_db_instance.postgres.address}"]
 }
 
 # Output the terraform private key to allow manual SSH access to EC2 instances
