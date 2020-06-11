@@ -53,6 +53,10 @@ def register_guest():
     return render_template(
         'guest_confirmation.html', name=name, email=email)
 
+@app.route("/favicon.ico", methods=["GET"])
+def favicon():
+	return send_from_directory("assets", "favicon.ico")
+
 
 if __name__ == '__main__':
     app.config['DEBUG'] = True
