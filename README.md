@@ -17,7 +17,7 @@ Next steps:
 
 
 # PaaS / Elastic Beanstalk
-Converted project and configured to run on Elastic Beanstalk. Working on automating the process entirely. #NOTE: requires Python 3.6 running on 64bit Amazon Linux.
+Converted project and configured to run on Elastic Beanstalk. Working on automating the process entirely. NOTE: requires Python 3.6 running on 64bit Amazon Linux.
 
 Next steps:
 
