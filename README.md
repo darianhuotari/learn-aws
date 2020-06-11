@@ -10,12 +10,18 @@ Next steps:
 
 2 - Tighten up IAM roles and security groups
 
-2 - Use IAM roles to allow DB access instead of username / password?
+3 - Use IAM roles to allow DB access instead of username / password?
+
+4 - Force SSL
 
 
 
 # PaaS / Elastic Beanstalk
-Coming later.
+Converted project and configured to run on Elastic Beanstalk. Working on automating the process entirely. #NOTE: requires Python 3.6 running on 64bit Amazon Linux.
+
+Next steps:
+
+1 - Automate using TerraForm
 
 
 # Containers / Kubernetes
