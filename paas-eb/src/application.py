@@ -19,9 +19,9 @@ application.config.update(
 )
 
 # initialize the database connection
-db.init_application(application)
+db.init_app(application)
 
-with application.application_context():
+with application.app_context():
     db.create_all()
 
 # initialize database migration management
