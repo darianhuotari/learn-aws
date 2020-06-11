@@ -1,5 +1,8 @@
 # Prompt for domain name
-variable "domain_name" {}
+variable "domain_name" {
+  type = string
+  default = "hoot-cloud.com"
+}
 
 
 # Declare provider and region
@@ -337,30 +340,6 @@ resource "aws_route53_record" "www" {
     zone_id                = "${aws_cloudfront_distribution.www.hosted_zone_id}"
     evaluate_target_health = false
   }
-}
-
-# Create postgres RDS instance and assign security groups
-resource "aws_db_instance" "postgres" {
-  allocated_storage      = 20
-  storage_type           = "gp2"
-  engine                 = "postgres"
-  engine_version         = "11.7"
-  instance_class         = "db.t2.micro"
-  name                   = "postgres"
-  username               = "postgres"
-  password               = "psqlPassword-01"
-  skip_final_snapshot    = true
-  vpc_security_group_ids = ["${aws_security_group.in_5432tcp.id}", "${aws_security_group.out_all.id}"]
-}
-
-# Create CNAME pointing to RDS instance DNS address
-resource "aws_route53_record" "demodb1" {
-  allow_overwrite = true
-  zone_id         = "${data.aws_route53_zone.zone.zone_id}"
-  name            = "demodb1.hoot-cloud.com"
-  type            = "CNAME"
-  ttl             = "300"
-  records         = ["${aws_db_instance.postgres.address}"]
 }
 
 # Output the terraform private key to allow manual SSH access to EC2 instances
