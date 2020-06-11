@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, send_from_directory,
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Guest
@@ -52,6 +52,7 @@ def register_guest():
 
     return render_template(
         'guest_confirmation.html', name=name, email=email)
+
 
 @application.route("/favicon.ico", methods=["GET"])
 def favicon():
