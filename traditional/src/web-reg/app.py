@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request, redirect, send_from_directory,
+from flask import Flask, render_template, request, redirect, send_from_directory
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Guest
