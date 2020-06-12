@@ -7,7 +7,7 @@ variable "domain_name" {
 
 # Declare provider and region
 provider "aws" {
-  region = "us-east-2"
+  region = "us-west-2"
 }
 
 # Declare US-East-1; required for CloudFront certificate
